@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState,useEffect} from 'react';
 import Avatar from '@material-ui/core/Avatar';
 import Button from '@material-ui/core/Button';
 import CssBaseline from '@material-ui/core/CssBaseline';
@@ -12,7 +12,7 @@ import LockOutlinedIcon from '@material-ui/icons/LockOutlined';
 import Typography from '@material-ui/core/Typography';
 import { makeStyles } from '@material-ui/core/styles';
 import Container from '@material-ui/core/Container';
-
+import FacebookLogin from 'react-facebook-login';
 function Copyright() {
   return (
     <Typography variant="body2" color="textSecondary" align="center">
@@ -48,6 +48,95 @@ const useStyles = makeStyles((theme) => ({
 
 export default function SignIn() {
   const classes = useStyles();
+  const [open, setOpen] = useState(false)
+  const [user, setUser] = useState(null)
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetchUser()
+  }, [])
+
+  const loginWithFacebook = async data => {
+    if (data && data.accessToken) {
+      console.log(data.accessToken)
+      const res = await fetch(
+        `http://localhost:5000/auth/login/facebook?token=${data.accessToken}`
+      )
+      if (res.ok) {
+        const dt = await res.json()
+        console.log(dt)
+        const user = dt.data;
+        const token = dt.token;
+        setUser(user);
+        localStorage.setItem("token", token);
+      } else {
+        console.log(res);
+      }
+    }
+  }
+  const loginWithEmail = async (email, pw) => {
+    if (!email || !pw) {
+      console.log("need email and password");
+      return
+    }
+    const res = await fetch(`http://localhost:5000/auth/login`, {
+      method: 'POST',
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({ email, password: pw })
+    });
+
+    if (res.ok) {
+      const dt = await res.json();
+      console.log(dt);
+      const user = dt.data.user;
+      const token = dt.data.token;
+      setUser(user);
+      localStorage.setItem("token", token);
+    } else {
+      console.log(res);
+    }
+  }
+
+  const fetchUser = async () => {
+    const token = localStorage.getItem("token")
+    if (!token) {
+      setLoaded(true)
+      return
+    }
+    const res = await fetch(`http://localhost:5000/users/me`, {
+      headers: {
+        authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
+    });
+    if (res.ok) {
+      const dt = await res.json();
+      setUser(dt.data)
+    } else {
+      localStorage.removeItem("token")
+    }
+    setLoaded(true)
+  }
+
+  const logout = async () => {
+    const res = await fetch(`http://localhost:5000/auth/logout`, {
+      headers: {
+        authorization: `Bearer ${localStorage.getItem("token")}`
+      }
+    });
+    if (res.ok) {
+      localStorage.removeItem("token");
+      setUser(null)
+    } else {
+      console.log("dont mess with my app")
+    }
+  }
+
+
+  if (!loaded) return <h1> loading .... </h1>
+
 
   return (
     <Container component="main" maxWidth="xs">
